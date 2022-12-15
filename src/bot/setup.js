@@ -2,7 +2,8 @@ const fs = require("fs");
 const chalk = require("chalk");
 const ora = require("ora-classic");
 const bs58 = require("bs58");
-const { Jupiter } = require("@jup-ag/core");
+const { Prism } = require("@prism-hq/prism-ag");
+
 const { Connection, Keypair, PublicKey } = require("@solana/web3.js");
 
 const { logExit } = require("./exit");
@@ -68,22 +69,25 @@ const setup = async () => {
 
 		spinner.text = "Setting up connection ...";
 		// connect to RPC
-		const connection = new Connection(cache.config.rpc[0]);
+		const connection = new Connection(
+			process.env.ALT_RPC_LIST.split(",")[
+				Math.floor(Math.random() * process.env.ALT_RPC_LIST.split(",").length)
+			]
+		);
+		spinner.text = "Loading Prism SDK...";
 
-		spinner.text = "Loading Jupiter SDK...";
-
-		const jupiter = await Jupiter.load({
-			connection,
-			cluster: cache.config.network,
+		const prism = await Prism.init({
 			user: wallet,
-			restrictIntermediateTokens: true,
-			wrapUnwrapSOL: cache.wrapUnwrapSOL,
+			slippage: (cache.config.slippage),
+			connection: connection,
 		});
-
+		
 		cache.isSetupDone = true;
+		prism.setSlippage(parseFloat(cache.config.slippage));
+
 		spinner.succeed("Setup done!");
 
-		return { jupiter, tokenA, tokenB };
+		return { prism, tokenA, tokenB };
 	} catch (error) {
 		if (spinner)
 			spinner.fail(
@@ -95,7 +99,7 @@ const setup = async () => {
 };
 
 const getInitialOutAmountWithSlippage = async (
-	jupiter,
+	prism,
 	inputToken,
 	outputToken,
 	amountToTrade
@@ -108,19 +112,13 @@ const getInitialOutAmountWithSlippage = async (
 			color: "magenta",
 		}).start();
 
-		// compute routes for the first time
-		const routes = await jupiter.computeRoutes({
-			inputMint: new PublicKey(inputToken.address),
-			outputMint: new PublicKey(outputToken.address),
-			inputAmount: amountToTrade,
-			slippage: 0,
-			forceFeech: true,
-		});
-
-		if (routes?.routesInfos?.length > 0) spinner.succeed("Routes computed!");
+		const routes = prism.getRoutes(amountToTrade / 10 ** inputToken.decimals);
+		
+		
+		if (routes?.length > 0) spinner.succeed("Routes computed!");
 		else spinner.fail("No routes found. Something is wrong!");
 
-		return routes.routesInfos[0].outAmountWithSlippage;
+		return routes[0].amountOut;
 	} catch (error) {
 		if (spinner)
 			spinner.fail(chalk.bold.redBright("Computing routes failed!\n"));

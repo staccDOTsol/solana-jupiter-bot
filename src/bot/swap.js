@@ -2,22 +2,18 @@ const { calculateProfit, toDecimal, storeItInTempAsJSON } = require("../utils");
 const cache = require("./cache");
 const { getSwapResultFromSolscanParser } = require("../services/solscan");
 
-const swap = async (jupiter, route) => {
+const swap = async (prism, route) => {
 	try {
 		const performanceOfTxStart = performance.now();
 		cache.performanceOfTxStart = performanceOfTxStart;
+ 
+		//if (process.env.DEBUG) storeItInTempAsJSON("routeInfoBeforeSwap", route);
 
-		if (process.env.DEBUG) storeItInTempAsJSON("routeInfoBeforeSwap", route);
+		const result = await prism.swap(route);
 
-		const { execute } = await jupiter.exchange({
-			routeInfo: route,
-		});
-		const result = await execute();
-
-		if (process.env.DEBUG) storeItInTempAsJSON("result", result);
+		//if (process.env.DEBUG) storeItInTempAsJSON("result", result);
 
 		const performanceOfTx = performance.now() - performanceOfTxStart;
-
 		return [result, performanceOfTx];
 	} catch (error) {
 		console.log("Swap error: ", error);
@@ -40,7 +36,7 @@ const failedSwapHandler = (tradeEntry) => {
 exports.failedSwapHandler = failedSwapHandler;
 
 const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
-	if (process.env.DEBUG) storeItInTempAsJSON(`txResultFromSDK_${tx?.txid}`, tx);
+	if (process.env.DEBUG) storeItInTempAsJSON(`txResultFromSDK_${tx?.txId}`, tx);
 
 	// update counter
 	cache.tradeCounter[cache.sideBuy ? "buy" : "sell"].success++;
@@ -50,11 +46,11 @@ const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
 		if (cache.sideBuy) {
 			cache.lastBalance.tokenA = cache.currentBalance.tokenA;
 			cache.currentBalance.tokenA = 0;
-			cache.currentBalance.tokenB = tx.outputAmount;
+			cache.currentBalance.tokenB = tx.response?.toAmount ;
 		} else {
 			cache.lastBalance.tokenB = cache.currentBalance.tokenB;
 			cache.currentBalance.tokenB = 0;
-			cache.currentBalance.tokenA = tx.outputAmount;
+			cache.currentBalance.tokenA = tx.response?.toAmount;
 		}
 
 		// update profit
@@ -75,18 +71,10 @@ const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
 		// update trade history
 		let tempHistory = cache.tradeHistory;
 
-		tradeEntry.inAmount = toDecimal(
-			tx.inputAmount,
-			cache.sideBuy ? tokenA.decimals : tokenB.decimals
-		);
-		tradeEntry.outAmount = toDecimal(
-			tx.outputAmount,
-			cache.sideBuy ? tokenB.decimals : tokenA.decimals
-		);
 
 		tradeEntry.profit = calculateProfit(
 			cache.lastBalance[cache.sideBuy ? "tokenB" : "tokenA"],
-			tx.outputAmount
+			tx.response?.toAmount
 		);
 		tempHistory.push(tradeEntry);
 		cache.tradeHistory = tempHistory;
@@ -95,18 +83,29 @@ const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
 		/** check real amounts on solscan because Jupiter SDK returns wrong amounts
 		 *  when we trading TokenA <> TokenA (arbitrage)
 		 */
-		const [inAmountFromSolscanParser, outAmountFromSolscanParser] =
-			await getSwapResultFromSolscanParser(tx?.txid);
+		var [inAmountFromSolscanParser, outAmountFromSolscanParser] =
+		await getSwapResultFromSolscanParser(tx?.txId);
+		
+		if (inAmountFromSolscanParser <= 0 || outAmountFromSolscanParser <= 0) {
+			tradeEntry.outAmount = tradeEntry.inAmount
 
-		if (inAmountFromSolscanParser === -1)
-			throw new Error(
-				`Solscan inputAmount error\n	https://solscan.io/tx/${tx.txid}`
-			);
-		if (outAmountFromSolscanParser === -1)
-			throw new Error(
-				`Solscan outputAmount error\n	https://solscan.io/tx/${tx.txid}`
-			);
+			cache.tradeCounter[cache.sideBuy ? "buy" : "sell"].success--;
+			
+		// update trade history
+		let tempHistory = cache.tradeHistory;
 
+
+		tradeEntry.profit = calculateProfit(
+			tradeEntry.inAmount,
+			tradeEntry.inAmount
+		);
+		tempHistory.push(tradeEntry);
+		cache.tradeHistory = tempHistory;
+			return 0.8
+
+		} else{
+			
+		inAmountFromSolscanParser = tradeEntry.inAmount;
 		cache.lastBalance.tokenA = cache.currentBalance.tokenA;
 		cache.currentBalance.tokenA =
 			cache.lastBalance.tokenA +
@@ -115,15 +114,10 @@ const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
 		// update trade history
 		let tempHistory = cache.tradeHistory;
 
-		tradeEntry.inAmount = toDecimal(inAmountFromSolscanParser, tokenA.decimals);
-		tradeEntry.outAmount = toDecimal(
-			outAmountFromSolscanParser,
-			tokenA.decimals
-		);
 
 		tradeEntry.profit = calculateProfit(
 			tradeEntry.inAmount,
-			tradeEntry.outAmount
+			outAmountFromSolscanParser
 		);
 		tempHistory.push(tradeEntry);
 		cache.tradeHistory = tempHistory;
@@ -132,6 +126,9 @@ const successSwapHandler = async (tx, tradeEntry, tokenA, tokenB) => {
 
 		// total profit
 		cache.currentProfit.tokenA = prevProfit + tradeEntry.profit;
+			return 1.1
+		}
 	}
+	return 0.8
 };
 exports.successSwapHandler = successSwapHandler;

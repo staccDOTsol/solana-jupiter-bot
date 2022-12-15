@@ -1,3 +1,9 @@
+>> features/prism branch
+
+@staccoverflow brings you this same bot on prism aggregator. Except ping pong is dumb, don't do ping pong unless you have lookuptables and do it atomically. duh.
+
+prism.ag has 0% fees and so often trades are stupid profitable. https://i.imgur.com/JkEOBhA.png 
+
 > ⚠️ This bot can lead to loss of your funds, use at your own risk.
 
 > This README is not complete. Try asking on [ARB Discord](https://discord.gg/wcxYzfKNaE) if you have any questions.

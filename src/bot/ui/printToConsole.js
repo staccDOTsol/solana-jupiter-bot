@@ -216,7 +216,7 @@ function printToConsole({
 			ui.div(
 				{
 					text: `IN:  ${chalk.yellowBright(
-						toDecimal(route.inAmount, inputToken.decimals)
+						toDecimal(route.amountIn  * 10 ** inputToken.decimals, inputToken.decimals)
 					)} ${chalk[cache.ui.defaultColor](inputToken.symbol)}`,
 				},
 				{
@@ -242,15 +242,15 @@ function printToConsole({
 			ui.div(
 				{
 					text: `OUT: ${chalk[simulatedProfit > 0 ? "greenBright" : "red"](
-						toDecimal(route.outAmount, outputToken.decimals)
+						toDecimal(route.amountOut * 10 ** outputToken.decimals , outputToken.decimals)
 					)} ${chalk[cache.ui.defaultColor](outputToken.symbol)}`,
 				},
 				{
 					text: " ",
 				},
-				{
+				{	
 					text: `MIN. OUT: ${chalk.magentaBright(
-						toDecimal(route.outAmountWithSlippage, outputToken.decimals)
+						toDecimal(route.amountOut  * 10 ** outputToken.decimals, outputToken.decimals)
 					)}`,
 				},
 				{
@@ -328,7 +328,8 @@ function printToConsole({
 			ui.div(chalk.gray("-".repeat(140)));
 			ui.div("");
 
-			if (cache.ui.showProfitChart) {
+			if (false){//cache.ui.showProfitChart) {
+				try {
 				ui.div(
 					chart.plot(cache.chart.spottedMax[cache.sideBuy ? "buy" : "sell"], {
 						padding: " ".repeat(10),
@@ -336,7 +337,10 @@ function printToConsole({
 						colors: [simulatedProfit > 0 ? chart.lightgreen : chart.lightred],
 					})
 				);
-
+				} 
+				catch (err){
+					
+				}
 				ui.div("");
 			}
 
@@ -378,8 +382,8 @@ function printToConsole({
 						ui.div(
 							{ text: `${entry.date}`, border: true },
 							{ text: `${entry.buy ? "BUY" : "SELL"}`, border: true },
-							{ text: `${entry.inAmount} ${entry.inputToken}`, border: true },
-							{ text: `${entry.outAmount} ${entry.outputToken}`, border: true },
+							{ text: `${entry.amountIn } ${entry.inputToken}`, border: true },
+							{ text: `${entry.amountOut } ${entry.outputToken}`, border: true },
 							{
 								text: `${
 									chalk[

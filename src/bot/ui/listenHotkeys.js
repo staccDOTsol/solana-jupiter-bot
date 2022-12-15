@@ -6,6 +6,7 @@ const { logExit } = require("../exit");
 const cache = require("../cache");
 
 const listenHotkeys = () => {
+	
 	keypress(process.stdin);
 
 	process.stdin.on("keypress", function (ch, key) {

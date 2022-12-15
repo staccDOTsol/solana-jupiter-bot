@@ -16,8 +16,8 @@ const cache = require("./cache");
 const { setup, getInitialOutAmountWithSlippage } = require("./setup");
 const { printToConsole } = require("./ui/");
 const { swap, failedSwapHandler, successSwapHandler } = require("./swap");
-
-const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
+let mod = 1
+const pingpongStrategy = async (prism, tokenA, tokenB) => {
 	cache.iteration++;
 	const date = new Date();
 	const i = cache.iteration;
@@ -28,11 +28,11 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 		updateIterationsPerMin(cache);
 
 		// Calculate amount that will be used for trade
-		const amountToTrade =
+		let amountToTrade =
 			cache.config.tradeSize.strategy === "cumulative"
 				? cache.currentBalance[cache.sideBuy ? "tokenA" : "tokenB"]
 				: cache.initialBalance[cache.sideBuy ? "tokenA" : "tokenB"];
-
+		amountToTrade = amountToTrade * mod
 		const baseAmount = cache.lastBalance[cache.sideBuy ? "tokenB" : "tokenA"];
 
 		// default slippage
@@ -45,19 +45,14 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 
 		// check current routes
 		const performanceOfRouteCompStart = performance.now();
-		const routes = await jupiter.computeRoutes({
-			inputMint: new PublicKey(inputToken.address),
-			outputMint: new PublicKey(outputToken.address),
-			inputAmount: amountToTrade,
-			slippage,
-			forceFetch: true,
-		});
+		await prism.loadRoutes(tokenA.address, tokenA.address);
 
-		checkRoutesResponse(routes);
-
+		const routes = prism.getRoutes(amountToTrade / 10 ** tokenA.decimals);
+		
+		
 		// count available routes
 		cache.availableRoutes[cache.sideBuy ? "buy" : "sell"] =
-			routes.routesInfos.length;
+			routes.length;
 
 		// update status as OK
 		cache.queue[i] = 0;
@@ -66,17 +61,20 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 			performance.now() - performanceOfRouteCompStart;
 
 		// choose first route
-		const route = await routes.routesInfos[0];
+		const route = routes[Math.ceil(Math.random() * 5) + 0];
+		//checkRoutesResponse(routes);
+		if (!route) return 
+
 
 		// update slippage with "profit or kill" slippage
 		if (cache.config.slippage === "profitOrKill") {
-			route.outAmountWithSlippage =
+			route.amountOut =
 				cache.lastBalance[cache.sideBuy ? "tokenB" : "tokenA"];
 		}
 
 		// calculate profitability
 
-		const simulatedProfit = calculateProfit(baseAmount, await route.outAmount);
+		const simulatedProfit = calculateProfit(baseAmount, await route.amountOut);
 
 		// store max profit spotted
 		if (
@@ -103,17 +101,8 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 			!cache.swappingRightNow &&
 			(cache.hotkeys.e ||
 				cache.hotkeys.r ||
-				simulatedProfit >= cache.config.minPercProfit)
+				simulatedProfit >= parseFloat(cache.config.minPercProfit))
 		) {
-			// hotkeys
-			if (cache.hotkeys.e) {
-				console.log("[E] PRESSED - EXECUTION FORCED BY USER!");
-				cache.hotkeys.e = false;
-			}
-			if (cache.hotkeys.r) {
-				console.log("[R] PRESSED - REVERT BACK SWAP!");
-				route.outAmountWithSlippage = 0;
-			}
 
 			if (cache.tradingEnabled || cache.hotkeys.r) {
 				cache.swappingRightNow = true;
@@ -123,8 +112,8 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 					buy: cache.sideBuy,
 					inputToken: inputToken.symbol,
 					outputToken: outputToken.symbol,
-					inAmount: toDecimal(route.inAmount, inputToken.decimals),
-					expectedOutAmount: toDecimal(route.outAmount, outputToken.decimals),
+					amountIn: toDecimal(route.amountIn * 10 ** tokenA.decimals, inputToken.decimals),
+					expectedOutAmount: toDecimal (route.amountOut * 10 ** tokenA.decimals, outputToken.decimals),
 					expectedProfit: simulatedProfit,
 				};
 
@@ -152,12 +141,12 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 
 				const profit = calculateProfit(
 					cache.currentBalance[cache.sideBuy ? "tokenB" : "tokenA"],
-					tx.outputAmount
+					tx.response.toAmount 
 				);
 
 				tradeEntry = {
 					...tradeEntry,
-					outAmount: tx.outputAmount || 0,
+					amountOut: tx.response.toAmount  || 0,
 					profit,
 					performanceOfTx,
 					error: tx.error?.message || null,
@@ -166,13 +155,8 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 				// handle TX results
 				if (tx.error) failedSwapHandler(tradeEntry);
 				else {
-					if (cache.hotkeys.r) {
-						console.log("[R] - REVERT BACK SWAP - SUCCESS!");
-						cache.tradingEnabled = false;
-						console.log("TRADING DISABLED!");
-						cache.hotkeys.r = false;
-					}
-					successSwapHandler(tx, tradeEntry, tokenA, tokenB);
+				
+				mod = mod *	await successSwapHandler(tx, tradeEntry, tokenA, token);
 				}
 			}
 		}
@@ -204,7 +188,7 @@ const pingpongStrategy = async (jupiter, tokenA, tokenB) => {
 	}
 };
 
-const arbitrageStrategy = async (jupiter, tokenA) => {
+const arbitrageStrategy = async (prism, tokenA) => {
 	cache.iteration++;
 	const date = new Date();
 	const i = cache.iteration;
@@ -214,10 +198,11 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 		updateIterationsPerMin(cache);
 
 		// Calculate amount that will be used for trade
-		const amountToTrade =
+		let amountToTrade =
 			cache.config.tradeSize.strategy === "cumulative"
 				? cache.currentBalance["tokenA"]
 				: cache.initialBalance["tokenA"];
+		amountToTrade = amountToTrade * mod
 		const baseAmount = amountToTrade;
 
 		// default slippage
@@ -229,19 +214,14 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 
 		// check current routes
 		const performanceOfRouteCompStart = performance.now();
-		const routes = await jupiter.computeRoutes({
-			inputMint: new PublicKey(inputToken.address),
-			outputMint: new PublicKey(outputToken.address),
-			inputAmount: amountToTrade,
-			slippage,
-			forceFetch: true,
-		});
+		await prism.loadRoutes(tokenA.address, tokenA.address);
 
-		checkRoutesResponse(routes);
-
+		const routes = prism.getRoutes(amountToTrade / 10 ** tokenA.decimals);
+		
+		
 		// count available routes
 		cache.availableRoutes[cache.sideBuy ? "buy" : "sell"] =
-			routes.routesInfos.length;
+			routes.length;
 
 		// update status as OK
 		cache.queue[i] = 0;
@@ -250,22 +230,24 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 			performance.now() - performanceOfRouteCompStart;
 
 		// choose first route
-		const route = await routes.routesInfos[1];
-
+		const route = routes[Math.ceil(Math.random() * 5) + 0];
+		//checkRoutesResponse(routes);
+		if (!route) return 
 		// update slippage with "profit or kill" slippage
 		if (cache.config.slippage === "profitOrKill") {
-			route.outAmountWithSlippage = amountToTrade;
+			route.amountOut = amountToTrade;
 		}
 
 		// calculate profitability
-
-		const simulatedProfit = calculateProfit(baseAmount, await route.outAmount);
+		
+		const simulatedProfit = calculateProfit(route.amountIn,  route.amountOut);
 
 		// store max profit spotted
 		if (simulatedProfit > cache.maxProfitSpotted["buy"]) {
 			cache.maxProfitSpotted["buy"] = simulatedProfit;
 		}
-
+		prism.setSlippage(simulatedProfit);
+		cache.config.slippage = simulatedProfit;
 		printToConsole({
 			date,
 			i,
@@ -293,7 +275,7 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 			}
 			if (cache.hotkeys.r) {
 				console.log("[R] PRESSED - REVERT BACK SWAP!");
-				route.outAmountWithSlippage = 0;
+				route.amountOut = 0;
 			}
 
 			if (cache.tradingEnabled || cache.hotkeys.r) {
@@ -304,8 +286,8 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 					buy: cache.sideBuy,
 					inputToken: inputToken.symbol,
 					outputToken: outputToken.symbol,
-					inAmount: toDecimal(route.inAmount, inputToken.decimals),
-					expectedOutAmount: toDecimal(route.outAmount, outputToken.decimals),
+					amountIn: toDecimal(route.amountIn * 10 ** tokenA.decimals, inputToken.decimals),
+					expectedOutAmount: toDecimal(route.amountOut * 10 ** tokenA.decimals, outputToken.decimals),
 					expectedProfit: simulatedProfit,
 				};
 
@@ -326,16 +308,16 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 					}
 				}, 500);
 
-				[tx, performanceOfTx] = await swap(jupiter, route);
+				[tx, performanceOfTx] = await swap(prism, route);
 
 				// stop refreshing status
 				clearInterval(printTxStatus);
-
-				const profit = calculateProfit(tradeEntry.inAmount, tx.outputAmount);
+				if (tx){
+				const profit = calculateProfit(tradeEntry.amountIn, tx.response?.toAmount);
 
 				tradeEntry = {
 					...tradeEntry,
-					outAmount: tx.outputAmount || 0,
+					amountOut: tx.response?.toAmount|| 0,
 					profit,
 					performanceOfTx,
 					error: tx.error?.message || null,
@@ -346,12 +328,13 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 				else {
 					if (cache.hotkeys.r) {
 						console.log("[R] - REVERT BACK SWAP - SUCCESS!");
-						cache.tradingEnabled = false;
+						cache.tradingEnabled = true;
 						console.log("TRADING DISABLED!");
 						cache.hotkeys.r = false;
 					}
-					successSwapHandler(tx, tradeEntry, tokenA, tokenA);
+					mod = mod * await successSwapHandler(tx, tradeEntry, tokenA, tokenA);
 				}
+			}
 			}
 		}
 
@@ -378,16 +361,16 @@ const arbitrageStrategy = async (jupiter, tokenA) => {
 	}
 };
 
-const watcher = async (jupiter, tokenA, tokenB) => {
+const watcher = async (prism, tokenA, tokenB) => {
 	if (
 		!cache.swappingRightNow &&
 		Object.keys(cache.queue).length < cache.queueThrottle
 	) {
 		if (cache.config.tradingStrategy === "pingpong") {
-			await pingpongStrategy(jupiter, tokenA, tokenB);
+			await pingpongStrategy(prism, tokenA, tokenB);
 		}
 		if (cache.config.tradingStrategy === "arbitrage") {
-			await arbitrageStrategy(jupiter, tokenA);
+			await arbitrageStrategy(prism, tokenA);
 		}
 	}
 };
@@ -395,7 +378,7 @@ const watcher = async (jupiter, tokenA, tokenB) => {
 const run = async () => {
 	try {
 		// set everything up
-		const { jupiter, tokenA, tokenB } = await setup();
+		const { prism, tokenA, tokenB } = await setup();
 
 		if (cache.config.tradingStrategy === "pingpong") {
 			// set initial & current & last balance for tokenA
@@ -407,8 +390,8 @@ const run = async () => {
 			cache.lastBalance.tokenA = cache.initialBalance.tokenA;
 
 			// set initial & last balance for tokenB
-			cache.initialBalance.tokenB = await getInitialOutAmountWithSlippage(
-				jupiter,
+			cache.initialBalance.tokenB = await getInitialOutAmount(
+				prism,
 				tokenA,
 				tokenB,
 				cache.initialBalance.tokenA
@@ -425,7 +408,7 @@ const run = async () => {
 		}
 
 		global.botInterval = setInterval(
-			() => watcher(jupiter, tokenA, tokenB),
+			() => watcher(prism, tokenA, tokenB),
 			cache.config.minInterval
 		);
 	} catch (error) {

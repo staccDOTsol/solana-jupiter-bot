@@ -59,12 +59,12 @@ const getSwapResultFromSolscanParser = async (txid) => {
 				const outputEvent = events.find(
 					(event) =>
 						event?.destinationOwner === ownerAddress &&
-						event?.tokenAddress === tokenAddress
+						event?.tokenAddress === tokenAddress && event?.amount != inputEvent?.amount
 				);
 
-				if (inputEvent) inputAmount = parseInt(inputEvent?.amount);
+				if (inputEvent) inputAmount = (inputEvent?.amount);
 
-				if (outputEvent) outputAmount = parseInt(outputEvent?.amount);
+				if (outputEvent) outputAmount = (outputEvent?.amount);
 			}
 		});
 
