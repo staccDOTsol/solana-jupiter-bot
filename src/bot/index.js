@@ -61,7 +61,7 @@ const pingpongStrategy = async (prism, tokenA, tokenB) => {
 			performance.now() - performanceOfRouteCompStart;
 
 		// choose first route
-		const route = routes[Math.ceil(Math.random() * 5) + 0];
+		const route = routes[Math.floor(Math.random() * 3) + 0];
 		//checkRoutesResponse(routes);
 		if (!route) return 
 
@@ -105,7 +105,7 @@ const pingpongStrategy = async (prism, tokenA, tokenB) => {
 		) {
 
 			if (cache.tradingEnabled || cache.hotkeys.r) {
-				cache.swappingRightNow = true;
+				cache.swappingRightNow = false //true;
 				// store trade to the history
 				let tradeEntry = {
 					date: date.toLocaleString(),
@@ -230,7 +230,7 @@ const arbitrageStrategy = async (prism, tokenA) => {
 			performance.now() - performanceOfRouteCompStart;
 
 		// choose first route
-		const route = routes[Math.ceil(Math.random() * 5) + 0];
+		const route = routes[Math.floor(Math.random() * 3) + 0];
 		//checkRoutesResponse(routes);
 		if (!route) return 
 		// update slippage with "profit or kill" slippage
@@ -241,13 +241,13 @@ const arbitrageStrategy = async (prism, tokenA) => {
 		// calculate profitability
 		
 		const simulatedProfit = calculateProfit(route.amountIn,  route.amountOut);
-
+		console.log(simulatedProfit)
 		// store max profit spotted
 		if (simulatedProfit > cache.maxProfitSpotted["buy"]) {
 			cache.maxProfitSpotted["buy"] = simulatedProfit;
 		}
-		prism.setSlippage(simulatedProfit);
-		cache.config.slippage = simulatedProfit;
+		prism.setSlippage(Math.round(1/mod)+4);
+		cache.config.slippage = Math.round(1/mod)+4;
 		printToConsole({
 			date,
 			i,
@@ -263,23 +263,14 @@ const arbitrageStrategy = async (prism, tokenA) => {
 		// check profitability and execute tx
 		let tx, performanceOfTx;
 		if (
-			!cache.swappingRightNow &&
-			(cache.hotkeys.e ||
-				cache.hotkeys.r ||
-				simulatedProfit >= cache.config.minPercProfit)
+		
+				simulatedProfit >= cache.config.minPercProfit
 		) {
 			// hotkeys
-			if (cache.hotkeys.e) {
-				console.log("[E] PRESSED - EXECUTION FORCED BY USER!");
-				cache.hotkeys.e = false;
-			}
-			if (cache.hotkeys.r) {
-				console.log("[R] PRESSED - REVERT BACK SWAP!");
-				route.amountOut = 0;
-			}
+			
 
-			if (cache.tradingEnabled || cache.hotkeys.r) {
-				cache.swappingRightNow = true;
+			if (true) {
+				cache.swappingRightNow = false //true;
 				// store trade to the history
 				let tradeEntry = {
 					date: date.toLocaleString(),
@@ -308,11 +299,11 @@ const arbitrageStrategy = async (prism, tokenA) => {
 					}
 				}, 500);
 
-				[tx, performanceOfTx] = await swap(prism, route);
+				[tx, performanceOfTx] = await swap(prism, route, tokenA);
 
 				// stop refreshing status
 				clearInterval(printTxStatus);
-				if (tx){
+				if (false){
 				const profit = calculateProfit(tradeEntry.amountIn, tx.response?.toAmount);
 
 				tradeEntry = {
@@ -355,7 +346,7 @@ const arbitrageStrategy = async (prism, tokenA) => {
 		});
 	} catch (error) {
 		cache.queue[i] = 1;
-		throw error;
+		
 	} finally {
 		delete cache.queue[i];
 	}

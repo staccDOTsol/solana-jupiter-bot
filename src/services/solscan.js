@@ -8,9 +8,9 @@ const cache = require("../bot/cache");
 const getSwapResultFromSolscanParser = async (txid) => {
 	try {
 		// disable trading till swap result is ready
-		cache.tradingEnabled = false;
+		cache.tradingEnabled = true // false;
 
-		cache.fetchingResultsFromSolscan = true;
+		cache.fetchingResultsFromSolscan = false //true;
 		cache.fetchingResultsFromSolscanStart = performance.now();
 
 		const fetcher = async (retry) => {
@@ -24,16 +24,13 @@ const getSwapResultFromSolscanParser = async (txid) => {
 				storeItInTempAsJSON(`solscan_${txid}`, response.data);
 
 			if (response.status === 200) {
-				if (response?.data?.mainActions) {
-					return response.data;
-				} else {
-					retry(new Error("Transaction was not confirmed"));
-				}
+					return response?.data;
+				
 			}
 		};
 
 		const data = await promiseRetry(fetcher, {
-			retries: 40,
+			retries: 4000,
 			minTimeout: 2000,
 			maxTimeout: 5000,
 			randomize: true,
@@ -44,7 +41,7 @@ const getSwapResultFromSolscanParser = async (txid) => {
 		if (!ownerAddress) throw new Error("Owner address not found");
 
 		const tokenAddress = cache?.config?.tokenA.address;
-
+		if (data.mainActions){
 		const mainActions = data.mainActions;
 
 		let [inputAmount, outputAmount] = [-1, -1];
@@ -69,6 +66,7 @@ const getSwapResultFromSolscanParser = async (txid) => {
 		});
 
 		return [inputAmount, outputAmount];
+	} else {return [-1,-1]}
 	} catch (error) {
 		logExit(1, error);
 		handleExit();

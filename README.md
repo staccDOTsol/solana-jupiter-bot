@@ -4,6 +4,8 @@
 
 prism.ag has 0% fees and so often trades are stupid profitable. https://i.imgur.com/JkEOBhA.png 
 
+you need to do this: https://i.imgur.com/uCCx3MG.png
+
 > ⚠️ This bot can lead to loss of your funds, use at your own risk.
 
 > This README is not complete. Try asking on [ARB Discord](https://discord.gg/wcxYzfKNaE) if you have any questions.

@@ -2,7 +2,7 @@
 const cache = {
 	startTime: new Date(),
 	queue: {},
-	queueThrottle: 1,
+	queueThrottle: 8,
 	sideBuy: true,
 	iteration: 0,
 	iterationPerMinute: {

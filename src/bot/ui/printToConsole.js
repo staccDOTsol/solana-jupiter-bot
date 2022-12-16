@@ -17,6 +17,7 @@ function printToConsole({
 	route,
 	simulatedProfit,
 }) {
+	return
 	try {
 		if (cache.ui.allowClear) {
 			// update max profitability spotted chart
@@ -33,7 +34,7 @@ function printToConsole({
 			}
 
 			// update performance chart
-			if (cache.ui.showPerformanceOfRouteCompChart) {
+			if (false) {
 				let performanceTemp = cache.chart.performanceOfRouteComp;
 				performanceTemp.shift();
 				performanceTemp.push(parseInt(performanceOfRouteComp.toFixed()));
@@ -43,7 +44,7 @@ function printToConsole({
 			// check swap / fetch result status
 			let statusMessage = " ";
 			let statusPerformance;
-			if (cache.swappingRightNow) {
+			if (false) {
 				statusPerformance = performance.now() - cache.performanceOfTxStart;
 				statusMessage = chalk.bold[
 					statusPerformance < 45000
@@ -52,7 +53,7 @@ function printToConsole({
 						? "yellowBright"
 						: "redBright"
 				](`SWAPPING ... ${(statusPerformance / 1000).toFixed(2)} s`);
-			} else if (cache.fetchingResultsFromSolscan) {
+			} else if (false) {
 				statusPerformance =
 					performance.now() - cache.fetchingResultsFromSolscanStart;
 				statusMessage = chalk.bold[
@@ -69,7 +70,7 @@ function printToConsole({
 			ui.resetOutput();
 
 			// show HOTKEYS HELP
-			if (cache.ui.showHelp) {
+			if (false) {
 				ui.div(
 					chalk.gray("[H] - show/hide help"),
 					chalk.gray("[CTRL]+[C] - exit"),
@@ -148,7 +149,7 @@ function printToConsole({
 					.join(" ")
 			);
 
-			if (cache.ui.showPerformanceOfRouteCompChart)
+			if (false)
 				ui.div(
 					chart.plot(cache.chart.performanceOfRouteComp, {
 						padding: " ".repeat(10),
@@ -282,7 +283,7 @@ function printToConsole({
 					text: " ",
 				}
 			);
-
+			if (false){
 			ui.div(" ");
 
 			ui.div("CURRENT BALANCE", "LAST BALANCE", "INIT BALANCE", "PROFIT", " ");
@@ -324,7 +325,7 @@ function printToConsole({
 				)} %`,
 				" "
 			);
-
+				}
 			ui.div(chalk.gray("-".repeat(140)));
 			ui.div("");
 

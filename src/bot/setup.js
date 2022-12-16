@@ -15,7 +15,7 @@ const setup = async () => {
 	let spinner, tokens, tokenA, tokenB, wallet;
 	try {
 		// listen for hotkeys
-		listenHotkeys();
+		//listenHotkeys();
 		await intro();
 
 		// load config file and store it in cache
