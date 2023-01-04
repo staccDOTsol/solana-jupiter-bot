@@ -101,7 +101,9 @@ const setup = async () => {
 			cluster: cache.config.network,
 			user: wallet,
 			platformFeeAndAccounts,
-			restrictIntermediateTokens: true
+			restrictIntermediateTokens: true, //v4 includes lookuptables
+			wrapUnwrapSOL: cache.wrapUnwrapSOL
+
 		});
 		cache.isSetupDone = true;
 		spinner.succeed("Setup done!");
